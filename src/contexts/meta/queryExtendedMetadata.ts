@@ -1,6 +1,6 @@
 import { MintInfo } from '@solana/spl-token';
 import { Connection } from '@solana/web3.js';
-import { Metadata } from '../../actions';
+import { Metadata } from '../actions';
 import { ParsedAccount } from '../accounts';
 import { cache } from '../accounts';
 import { getMultipleAccounts } from '../accounts';
