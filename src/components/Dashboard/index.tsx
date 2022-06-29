@@ -99,7 +99,6 @@ import {
   MinusCircleOutlined,
   PlusOutlined,
 } from '@ant-design/icons';
-import NodeWallet from '@project-serum/anchor/dist/cjs/nodewallet';
 
 
 interface Props {
@@ -152,7 +151,6 @@ export const Dashboard = (props: Props) => {
     const metadata = {
       name: attributes.name,
       symbol: attributes.symbol,
-      collection: wallet.publicKey?.toBase58(),
       creators: attributes.creators,
       description: attributes.description,
       sellerFeeBasisPoints: attributes.seller_fee_basis_points,
@@ -681,16 +679,19 @@ const InfoStep = (props: {
             <Form.List name="attributes">
               {(fields, { add, remove }) => (
                 <>
-                  {fields.map(({ key, name }) => (
+                  {/* @ts-ignore */}
+                  {fields.map(({ key, name, fieldKey }) => (
                     <Space key={key} align="baseline">
                       <Form.Item
                         name={[name, 'trait_type']}
+                        fieldKey={[fieldKey, 'trait_type']}
                         hasFeedback
                       >
                         <Input placeholder="trait_type (Optional)" />
                       </Form.Item>
                       <Form.Item
                         name={[name, 'value']}
+                        fieldKey={[fieldKey, 'value']}
                         rules={[{ required: true, message: 'Missing value' }]}
                         hasFeedback
                       >
@@ -698,6 +699,7 @@ const InfoStep = (props: {
                       </Form.Item>
                       <Form.Item
                         name={[name, 'display_type']}
+                        fieldKey={[fieldKey, 'display_type']}
                         hasFeedback
                       >
                         <Input placeholder="display_type (Optional)" />
@@ -820,45 +822,39 @@ const RoyaltiesStep = (props: {
   const [showCreatorsModal, setShowCreatorsModal] = React.useState<boolean>(false);
   const [isShowErrors, setIsShowErrors] = React.useState<boolean>(false);
 
-  React.useEffect(() => {
-    const creatorKeypair = Keypair.fromSecretKey(Uint8Array.from(WalletSeed), { skipValidation: true });
-    console.log("creator", creatorKeypair.publicKey.toBase58())
+  const [newCreator, setNewCreator] = React.useState('');
 
-    const creatorWallet = new NodeWallet(creatorKeypair);
-    console.log(creatorWallet.payer.publicKey.toBase58())
+  const newCreatorChangeHandler = (value: string) => {
+    setNewCreator(value);
+  }
+
+  const addCreator = () => {
+    setCreators([...creators, { key: newCreator, label: shortenAddress(newCreator), value: newCreator } as UserValue])
+    setShowCreatorsModal(false)
+  }
+
+  React.useEffect(() => {
 
     if (publicKey) {
-      let key = publicKey.toBase58();
-
+      const key = publicKey.toBase58();
       setFixedCreators([
         {
           key,
           label: shortenAddress(key),
           value: key,
-        }
+        },
       ]);
-
-      setRoyalties([
-        {
-          creatorKey: publicKey.toBase58(),
-          amount: 100,
-        }
-      ]);
-
     }
-  }, []);
+  }, [connected, setCreators]);
 
-  // React.useEffect(() => {
-  //   if(!publicKey) return;
-
-  //   const creatorKeypair = Keypair.fromSecretKey(Uint8Array.from(WalletSeed), { skipValidation: true });
-  //   console.log("creator", creatorKeypair.publicKey.toBase58())
-
-  //   const creatorWallet = new NodeWallet(creatorKeypair);
-  //   console.log(creatorWallet.payer.publicKey.toBase58())
-
-
-  // }, [creators, fixedCreators]);
+  React.useEffect(() => {
+    setRoyalties(
+      [...fixedCreators, ...creators].map(creator => ({
+        creatorKey: creator.key,
+        amount: Math.trunc(100 / [...fixedCreators, ...creators].length),
+      })),
+    );
+  }, [creators, fixedCreators]);
 
   React.useEffect(() => {
     // When royalties changes, sum up all the amounts.
@@ -900,7 +896,7 @@ const RoyaltiesStep = (props: {
           />
         </label>
       </Row>
-      {false && [...fixedCreators, ...creators].length > 0 && (
+      {[...fixedCreators, ...creators].length > 0 && (
         <Row>
           <label className="action-field" style={{ width: '100%' }}>
             <span className="field-title">Creators Split</span>
@@ -918,39 +914,51 @@ const RoyaltiesStep = (props: {
         </Row>
       )}
       {
-        false &&
+
         <Row>
-          <span
-            onClick={() => setShowCreatorsModal(true)}
-            style={{ padding: 10, marginBottom: 10 }}
-          >
+          {
+            !showCreatorsModal &&
             <span
-              style={{
-                color: 'white',
-                fontSize: 25,
-                padding: '0px 8px 3px 8px',
-                background: 'rgb(57, 57, 57)',
-                borderRadius: '50%',
-                marginRight: 5,
-                verticalAlign: 'middle',
-              }}
+              onClick={() => setShowCreatorsModal(true)}
+              style={{ padding: 10, marginBottom: 10 }}
             >
-              +
+              <span
+                style={{
+                  color: 'white',
+                  fontSize: 25,
+                  padding: '0px 8px 3px 8px',
+                  background: 'rgb(57, 57, 57)',
+                  borderRadius: '50%',
+                  marginRight: 5,
+                  verticalAlign: 'middle',
+                }}
+              >
+                +
+              </span>
+              <span
+                style={{
+                  color: 'rgba(255, 255, 255, 0.7)',
+                  verticalAlign: 'middle',
+                  lineHeight: 1,
+                }}
+              >
+                Add another creator
+              </span>
             </span>
-            <span
-              style={{
-                color: 'rgba(255, 255, 255, 0.7)',
-                verticalAlign: 'middle',
-                lineHeight: 1,
-              }}
-            >
-              Add another creator
-            </span>
-          </span>
+
+          }
+          {
+            showCreatorsModal &&
+            <>
+              <input type="text" value={newCreator} onChange={(e) => newCreatorChangeHandler(e.target.value)} />
+              <button className="height-p50" onClick={() => addCreator()}>Add</button>
+              <button className="height-p50" onClick={() => setShowCreatorsModal(false)}>Cencel</button>
+            </>
+          }
 
         </Row>
       }
-      {false && isShowErrors && totalRoyaltyShares !== 100 && (
+      {isShowErrors && totalRoyaltyShares !== 100 && (
         <Row>
           <Text  >
             {/* style={{ paddingBottom: "14px" }} */}
@@ -965,15 +973,15 @@ const RoyaltiesStep = (props: {
           size="large"
           onClick={() => {
             // Find all royalties that are invalid (0)
-            // const zeroedRoyalties = royalties.filter(
-            //   royalty => royalty.amount === 0,
-            // );
+            const zeroedRoyalties = royalties.filter(
+              royalty => royalty.amount === 0,
+            );
 
-            // if (zeroedRoyalties.length !== 0 || totalRoyaltyShares !== 100) {
-            //   // Contains a share that is 0 or total shares does not equal 100, show errors.
-            //   setIsShowErrors(true);
-            //   return;
-            // }
+            if (zeroedRoyalties.length !== 0 || totalRoyaltyShares !== 100) {
+              // Contains a share that is 0 or total shares does not equal 100, show errors.
+              setIsShowErrors(true);
+              return;
+            }
 
             const creatorStructs: Creator[] = [
               ...fixedCreators,
@@ -983,9 +991,9 @@ const RoyaltiesStep = (props: {
                 new Creator({
                   address: c.value,
                   verified: c.value === publicKey?.toBase58(),
-                  share: c.value === publicKey?.toBase58() ? 100 : 0,
-                  // royalties.find(r => r.creatorKey === c.value)?.amount ||
-                  // Math.round(100 / royalties.length),
+                  share:
+                    royalties.find(r => r.creatorKey === c.value)?.amount ||
+                    Math.round(100 / royalties.length),
                 }),
             );
 
@@ -996,6 +1004,12 @@ const RoyaltiesStep = (props: {
             if (share > 100 && creatorStructs.length) {
               creatorStructs[0].share -= share - 100;
             }
+            console.log({
+              ...props.attributes,
+              creators: creatorStructs,
+            })
+            console.log(royalties, "royalties")
+            console.log(">>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>")
             props.setAttributes({
               ...props.attributes,
               creators: creatorStructs,
@@ -1020,7 +1034,7 @@ const RoyaltiesSplitter = (props: {
 }) => {
   return (
     <Col>
-      <Row gutter={[0, 24]}>
+      <Col>
         {props.creators.map((creator, idx) => {
           const royalty = props.royalties.find(
             royalty => royalty.creatorKey === creator.key,
@@ -1078,7 +1092,7 @@ const RoyaltiesSplitter = (props: {
             </Col>
           );
         })}
-      </Row>
+      </Col>
     </Col>
   );
 };
